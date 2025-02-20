@@ -20,5 +20,7 @@ nebo v adresáři skriptu
 `python3 wordlist_generator.py cz`
 ### použíj 3 prohlížeče
 `python3 wordlist_generator.py cz --processes=3`
+### ukecaný a grafický
+`python3 wordlist_generator.py en -gv`
 ### zobraz nápovědu
 `python3 wordlist_generator.py --help`
