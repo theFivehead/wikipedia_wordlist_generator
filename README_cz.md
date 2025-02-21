@@ -17,9 +17,9 @@ nebo v adresáři skriptu
 > WP - [odkaz na jazykové kódy wikipedie](https://en.wikipedia.org/wiki/List_of_Wikipedias#Wikipedia_edition_codes)
 ## Příklady
 ### wordlist z české wikipedie
-`python3 wordlist_generator.py cz`
+`python3 wordlist_generator.py cs`
 ### použíj 3 prohlížeče
-`python3 wordlist_generator.py cz --processes=3`
+`python3 wordlist_generator.py cs --processes=3`
 ### ukecaný a grafický
 `python3 wordlist_generator.py en -gv`
 ### zobraz nápovědu
