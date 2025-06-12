@@ -134,17 +134,20 @@ WP - https://en.wikipedia.org/wiki/List_of_Wikipedias#Wikipedia_edition_codes"""
         return 0
 
     # nacte list wikipedia stranek a extrahuje URL pro dany WP kod
+    url=""
     if ukecany:
         print("chosen WP:"+wp_kod)
-    jazyk = BeautifulSoup(requests.get("https://en.wikipedia.org/wiki/List_of_Wikipedias").text,bsparser).find("a",string=wp_kod).parent.parent.next_sibling()
-
-    if jazyk is None:
-        print("code "+wp_kod+" doesnt exist")
-        sys.exit()
-    url=jazyk[0].get('href')
-    if url.find("https:") == -1:
-        print("code "+wp_kod+" doesnt exist")
-        sys.exit()
+    if wp_kod=="en":
+        url="https://en.wikipedia.org/wiki/Special:Statistics"
+    else:
+        jazyk = BeautifulSoup(requests.get("https://en.wikipedia.org/wiki/List_of_Wikipedias").text,bsparser).find("a",string=wp_kod).parent.parent.next_sibling()
+        if jazyk is None:
+            print("code "+wp_kod+" doesnt exist")
+            sys.exit()
+        url=jazyk[0].get('href')
+        if url.find("https:") == -1:
+            print("code "+wp_kod+" doesnt exist")
+            sys.exit()
 
     # presmeruje se na URL se seznamem clanku
     seznam_clanku=BeautifulSoup(requests.get(url).text,bsparser).find(attrs={"class":"mw-statistics-pages"}).find("a",href=True).get('href')
