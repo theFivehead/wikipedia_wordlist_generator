@@ -3,7 +3,7 @@ import sys
 import time
 
 from math import ceil
-from multiprocessing import Process, cpu_count
+from multiprocessing import Process, cpu_count, Manager, Queue
 from os import cpu_count
 from urllib.parse import  urlparse
 
@@ -14,11 +14,17 @@ from urllib3.util import parse_url
 bsparser="html.parser"
 
 def extrahuj_slova(URL,fronta,verbose,pozice_dilu=1,pocet_dilu=1,maximum_stran=-1):
+    def uloz_do_fronty(buffer):
+        for text in buffer:
+            slova = text.split()
+            fronta.put(list(set(slova)))
+        text_buffer.clear()
+    prvniCastURL="https://"+parse_url(URL).netloc
+    seznam_strana = 0
+    predesly_nadpis = ""
+    kol_pro_zapsani=5
+    text_buffer = []
     try:
-        prvniCastURL="https://"+parse_url(URL).netloc
-        seznam_strana = 0
-        predesly_nadpis = ""
-        kol_pro_zapsani=5
         # nacitani a ukladani textu dokud nenajede na posledni stranku
         while True:
             if verbose:
@@ -64,18 +70,11 @@ def extrahuj_slova(URL,fronta,verbose,pozice_dilu=1,pocet_dilu=1,maximum_stran=-
             #zkontroluje jestli se nenachazi na posledni strance nebo neprekrocil limit stran
             if (len(URL_dalsi_stranka) <= 1 < seznam_strana) or (seznam_strana >= maximum_stran != -1):
                 # postprocessing
-                for text in text_buffer:
-                    slova = text.split()
-                    fronta.put(list(set(slova)))
-                text_buffer.clear()
+                uloz_do_fronty(text_buffer)
                 break
             elif (seznam_strana+1)%kol_pro_zapsani==0: #zapise slova do spolecneho buferu
                 # postprocessing
-                for text in text_buffer:
-                    slova = text.split(text)
-                    fronta.put(list(set(slova)))
-                text_buffer.clear()
-
+                uloz_do_fronty(text_buffer)
             URL= prvniCastURL+URL_dalsi_stranka[-1].get('href')#prejde na dalsi stranku
             print("URL: "+URL)
 
@@ -83,24 +82,21 @@ def extrahuj_slova(URL,fronta,verbose,pozice_dilu=1,pocet_dilu=1,maximum_stran=-
     except KeyboardInterrupt:
         if verbose:
             print(f"ending PID:{multiprocessing.current_process().pid}")
-        for text in text_buffer:
-            slova = text.split()
-            fronta.put(list(set(slova)))
-        text_buffer.clear()
-        return 1
+        uloz_do_fronty(text_buffer)
+        print(f"PID:{multiprocessing.current_process().pid} ended")
     #radne ukonceni procesu
 
 
 
 def cteni_queue(ukonceni,fronta,hlavni_buffer):
-
-    while not ukonceni.value:
-        try:
+    try:
+        while not ukonceni.value:
+                while not fronta.empty():
+                    hlavni_buffer.extend(fronta.get())
+    except KeyboardInterrupt:
+        while not ukonceni.value:
             while not fronta.empty():
                 hlavni_buffer.extend(fronta.get())
-        except KeyboardInterrupt:
-            print("stop")
-            ukonceni.value=1
     unikatni_slova=list(set(hlavni_buffer))
     hlavni_buffer[:]=unikatni_slova
 
@@ -110,7 +106,6 @@ def main():
     #zpracování argumentů z terminálu
     help=False
     ukecany=False
-    headless=True
     pocet_CPU = cpu_count()
     dily = pocet_CPU * 2  # vypocte kolik prohlizecu bude bezet zaroven
     wp_kod=sys.argv[1]
@@ -143,12 +138,10 @@ def main():
         """)
         return 0
 
-
-
     # nacte list wikipedia stranek a extrahuje URL pro dany WP kod
-    print(wp_kod)
+    if verbose:
+        print("chosen WP:"+wp_kod)
     jazyk = BeautifulSoup(requests.get("https://en.wikipedia.org/wiki/List_of_Wikipedias").text,bsparser).find("a",string=wp_kod).parent.parent.next_sibling()
-    print(jazyk)
 
     if jazyk is None:
         print("code "+wp_kod+" doesnt exist")
@@ -159,7 +152,6 @@ def main():
         print("code "+wp_kod+" doesnt exist")
         sys.exit()
 
-    #driver.get(url.get_attribute("href"))
     requests.get(url)
     # presmeruje se na URL se seznamem clanku
     r=requests.get(url)
@@ -183,15 +175,16 @@ def main():
         print(f"number of processes to start:{dily}")
     procesy=[""]*dily
     zpracovani_fronty=Process(target=cteni_queue, args=(ukonceni, fronta,hlavni_buffer))
+
+    #vytvori a spusti procesy
+    for i in range(len(procesy)):
+        procesy[i]=Process(target=extrahuj_slova, args=(zacatecni_URL ,fronta,ukecany ,i, dily,max_stran))
+    for i in range(len(procesy)):
+        procesy[i].start()
+        if ukecany:
+            print(f"Process {i+1} started with PID:{procesy[i].pid}")
+    zpracovani_fronty.start()
     try:
-        #vytvori a spusti procesy
-        for i in range(len(procesy)):
-            procesy[i]=Process(target=extrahuj_slova, args=(zacatecni_URL,nastaveni ,fronta,ukecany ,i, dily,max_stran))
-        for i in range(len(procesy)):
-            procesy[i].start()
-            if ukecany:
-                print(f"Process {i+1} started with PID:{procesy[i].pid}")
-        zpracovani_fronty.start()
         print("world list processing has started")
         for i in range(len(procesy)):
             procesy[i].join()
@@ -199,10 +192,15 @@ def main():
         time.sleep(0.5)
     except KeyboardInterrupt:
         print("ending script please wait")
-        ukonceni.value = 1
-        time.sleep(0.5)
+        print("stoping processes")
+        time.sleep(0.1)
+
         for i in range(len(procesy)):
             procesy[i].join()
+        time.sleep(0.1)
+        print("ending queue")
+        ukonceni.value = 1
+        zpracovani_fronty.join()
     if zpracovani_fronty.is_alive():
         time.sleep(2)
         zpracovani_fronty.terminate()
