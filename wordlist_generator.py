@@ -112,12 +112,11 @@ def main():
             flag=sys.argv[arg_pozice]
             if flag.find("--")!=-1: #dlouhe argumenty
                 if flag.find("help")!=-1:
-                    print("lol")
                     help = True
-                elif flag.find("processes"):
+                elif flag.find("processes")!=-1:
                     arg_hodnota=flag.find("=")
                     dily=int(flag[arg_hodnota+1:])
-                elif flag.find("limit"):
+                elif flag.find("limit")!=-1:
                     arg_hodnota=flag.find("=")
                     max_stran=int(flag[arg_hodnota+1:])
             elif flag.find("-")!=-1: #kratke argumenty
