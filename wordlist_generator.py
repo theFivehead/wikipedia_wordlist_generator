@@ -102,7 +102,7 @@ def main():
     help=False
     ukecany=False
     pocet_CPU = cpu_count()
-    dily = pocet_CPU * 2  # vypocte kolik prohlizecu bude bezet zaroven
+    dily = pocet_CPU * 2  # vypocte kolik processu bude bezet zaroven
     wp_kod=sys.argv[1]
     max_stran=-1
     if wp_kod.find("-") == 0:
@@ -112,25 +112,25 @@ def main():
             flag=sys.argv[arg_pozice]
             if flag.find("--")!=-1: #dlouhe argumenty
                 if flag.find("help")!=-1:
+                    print("lol")
                     help = True
-                if flag.find("processes"):
+                elif flag.find("processes"):
                     arg_hodnota=flag.find("=")
                     dily=int(flag[arg_hodnota+1:])
-                if flag.find("limit"):
+                elif flag.find("limit"):
                     arg_hodnota=flag.find("=")
                     max_stran=int(flag[arg_hodnota+1:])
             elif flag.find("-")!=-1: #kratke argumenty
                 if flag.find("v")!=-1:
                     ukecany=True
     if help:
-        print("""wordlist_generator.py [WP] -možnosti
-        -v - ukecaný
-        --processes=N - počet procesů - nastaví kolik prohlížečů pojede zároveň. V základu běží dvojnásobek počtu CPU jader
-        --limit=N - maximální počet stran - do kolika stran wikipedie program pojede (pokud není nastavený limit, vezme všechny)
-        --help - zobrazí tuto stránku
+        print("""python3 wordlist_generator.py [WP] -flags
+-v - verbose
+--processes=N - number of prosesses (N) - sets how many processes will run at the same time. By default, the number of processes running is twice the number of CPU cores
+--limit=N - maximum number of pages - how many Wikipedia pages the program will go through (if no limit is set, it will take all of them)
+--help - shows this help page
 
-        WP - [odkaz na jazykové kódy wikipedie](https://en.wikipedia.org/wiki/List_of_Wikipedias#Wikipedia_edition_codes)
-        """)
+WP - https://en.wikipedia.org/wiki/List_of_Wikipedias#Wikipedia_edition_codes""")
         return 0
 
     # nacte list wikipedia stranek a extrahuje URL pro dany WP kod
