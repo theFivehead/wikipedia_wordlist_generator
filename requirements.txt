@@ -1,1 +1,4 @@
+requests~=2.32.3
+BeautifulSoup4~=4.13.4
 selenium~=4.28.1
+urllib3~=2.4.0
