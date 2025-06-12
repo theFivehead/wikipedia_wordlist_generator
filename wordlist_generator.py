@@ -63,10 +63,7 @@ def extrahuj_slova(URL,fronta,verbose,pozice_dilu=1,pocet_dilu=1,maximum_stran=-
 
             #prejde na dalsi stranku se seznamem
             URL_dalsi_stranka=WikiSeznamHTML.find(attrs={"class":"mw-allpages-nav"}).find_all("a")
-            print(URL_dalsi_stranka[-1].get('href'))
-            print(len(URL_dalsi_stranka))
-            print(len(URL_dalsi_stranka) <= 1 < seznam_strana)
-            print(seznam_strana >= maximum_stran != -1)
+            #print(URL_dalsi_stranka[-1].get('href'))
             #zkontroluje jestli se nenachazi na posledni strance nebo neprekrocil limit stran
             if (len(URL_dalsi_stranka) <= 1 < seznam_strana) or (seznam_strana >= maximum_stran != -1):
                 # postprocessing
@@ -76,14 +73,12 @@ def extrahuj_slova(URL,fronta,verbose,pozice_dilu=1,pocet_dilu=1,maximum_stran=-
                 # postprocessing
                 uloz_do_fronty(text_buffer)
             URL= prvniCastURL+URL_dalsi_stranka[-1].get('href')#prejde na dalsi stranku
-            print("URL: "+URL)
-
             seznam_strana += 1
-    except KeyboardInterrupt:
+
+    except KeyboardInterrupt:#v pripade SIGKILL ulozi text do fronty
         if verbose:
             print(f"ending PID:{multiprocessing.current_process().pid}")
         uloz_do_fronty(text_buffer)
-        print(f"PID:{multiprocessing.current_process().pid} ended")
     #radne ukonceni procesu
 
 
@@ -139,7 +134,7 @@ def main():
         return 0
 
     # nacte list wikipedia stranek a extrahuje URL pro dany WP kod
-    if verbose:
+    if ukecany:
         print("chosen WP:"+wp_kod)
     jazyk = BeautifulSoup(requests.get("https://en.wikipedia.org/wiki/List_of_Wikipedias").text,bsparser).find("a",string=wp_kod).parent.parent.next_sibling()
 
@@ -147,23 +142,14 @@ def main():
         print("code "+wp_kod+" doesnt exist")
         sys.exit()
     url=jazyk[0].get('href')
-    print(url)
     if url.find("https:") == -1:
         print("code "+wp_kod+" doesnt exist")
         sys.exit()
 
-    requests.get(url)
     # presmeruje se na URL se seznamem clanku
-    r=requests.get(url)
-    seznam_clanku=BeautifulSoup(r.text,bsparser).find(attrs={"class":"mw-statistics-pages"}).find("a",href=True).get('href')
-    print(seznam_clanku)
-
+    seznam_clanku=BeautifulSoup(requests.get(url).text,bsparser).find(attrs={"class":"mw-statistics-pages"}).find("a",href=True).get('href')
     zacatecni_URL="https://"+urlparse(url).netloc+seznam_clanku #prvni URL se seznamem
-    print(zacatecni_URL)
 
-
-    if ukecany:
-        print(f"first page URL:{zacatecni_URL}")
     #inicializace multiprocessingu ---------------
     fronta = multiprocessing.Queue()  # zde se slevaji vsechny stringy s procesu ze, ktereho se nakonce vytvori wordlist
     hlavni_buffer=multiprocessing.Manager().list()
@@ -192,13 +178,15 @@ def main():
         time.sleep(0.5)
     except KeyboardInterrupt:
         print("ending script please wait")
-        print("stoping processes")
+        if ukecany:
+            print("stoping processes")
         time.sleep(0.1)
 
         for i in range(len(procesy)):
             procesy[i].join()
         time.sleep(0.1)
-        print("ending queue")
+        if ukecany:
+            print("ending queue")
         ukonceni.value = 1
         zpracovani_fronty.join()
     if zpracovani_fronty.is_alive():
@@ -208,7 +196,7 @@ def main():
     with open(wp_kod+"_wordlist.txt", "w", encoding='utf-8') as f:
         f.write("\n".join(set(hlavni_buffer)))
         # zapise do souboru
-    print("wordlist "+wp_kod+"_wordlist.txt successfully created")
+    print("wordlist "+wp_kod+"_wordlist.txt was successfully created")
 
 
 if __name__=='__main__':
