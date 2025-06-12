@@ -1,5 +1,4 @@
 # wikipedia wordlist generator
-[česká dokumentace](https://github.com/theFivehead/wikipedia_wordlist_generator/blob/main/README_cz.md)
 ## Description 
 WWG uses requests and BeautifulSoup2 to generate a wordlist by reading a wikipedia page, extracting words out of the page, saving them and doing it over and over until it finishes and generates a worldlist from the accumulated words
 ## Installation
