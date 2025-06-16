@@ -1,6 +1,7 @@
 import multiprocessing
 import sys
 import time
+from logging import exception
 
 from math import ceil
 from multiprocessing import Process, cpu_count, Manager, Queue
@@ -27,39 +28,45 @@ def extrahuj_slova(URL,fronta,verbose,pozice_dilu=1,pocet_dilu=1,maximum_stran=-
     try:
         # nacitani a ukladani textu dokud nenajede na posledni stranku
         while True:
+            bezchyby=True
             if verbose:
                 print(f"PID:{multiprocessing.current_process().pid} - page:{seznam_strana}")
             i = 0
             #nacte si odkazy na jednotlive články
-            WikiSeznamHTML=BeautifulSoup(requests.get(URL).text,bsparser)
-            seznam_stranek=WikiSeznamHTML.find(attrs={"class":"mw-allpages-chunk"}).find_all("a")
+            try:
+                WikiSeznamHTML=BeautifulSoup(requests.get(URL).text,bsparser)
+                seznam_stranek=WikiSeznamHTML.find(attrs={"class":"mw-allpages-chunk"}).find_all("a")
+            except AttributeError:
+                bezchyby=False
+            if bezchyby:
+                text_buffer = []
+                omezeni_zhora=ceil(len(seznam_stranek) / pocet_dilu)
+                konec_rozsahu=(pozice_dilu+1) *  omezeni_zhora
+                zacatek_rozsahu=konec_rozsahu-omezeni_zhora
+                if konec_rozsahu > len(seznam_stranek):
+                    konec_rozsahu=len(seznam_stranek)
 
-            text_buffer = []
-            omezeni_zhora=ceil(len(seznam_stranek) / pocet_dilu)
-            konec_rozsahu=(pozice_dilu+1) *  omezeni_zhora
-            zacatek_rozsahu=konec_rozsahu-omezeni_zhora
-            if konec_rozsahu > len(seznam_stranek):
-                konec_rozsahu=len(seznam_stranek)
+                stranky_URL = [""] * (konec_rozsahu-zacatek_rozsahu)
 
-            stranky_URL = [""] * (konec_rozsahu-zacatek_rozsahu)
-
-            #extrahuje odkazy ze seznamu
-            j=0
-            for i in range(zacatek_rozsahu,konec_rozsahu):
-                stranky_URL[j] = prvniCastURL+seznam_stranek[i].get('href')
-                j+=1
-            #extrahuje text z jednotlivých stránek
-            for i in range(len(stranky_URL)):
-                #print(str(i) + ":" + stranky_URL[i]) #debugging
-                html=requests.get(stranky_URL[i]).text
-                html_parsed=BeautifulSoup(html,"html.parser")
-                nadpis=html_parsed.find(id='firstHeading').text
-                if predesly_nadpis == nadpis:
-                    continue
-                else:
-                    text_buffer.append(html_parsed.body.get_text().strip())
-                    predesly_nadpis=nadpis
-
+                #extrahuje odkazy ze seznamu
+                j=0
+                for i in range(zacatek_rozsahu,konec_rozsahu):
+                    stranky_URL[j] = prvniCastURL+seznam_stranek[i].get('href')
+                    j+=1
+                #extrahuje text z jednotlivých stránek
+                for i in range(len(stranky_URL)):
+                    #print(str(i) + ":" + stranky_URL[i]) #debugging
+                    try:
+                        html=requests.get(stranky_URL[i]).text
+                        html_parsed=BeautifulSoup(html,"html.parser")
+                        nadpis=html_parsed.find(id='firstHeading').text
+                    except AttributeError:
+                        continue
+                    if predesly_nadpis == nadpis:
+                        continue
+                    else:
+                        text_buffer.append(html_parsed.body.get_text().strip())
+                        predesly_nadpis=nadpis
 
             #prejde na dalsi stranku se seznamem
             URL_dalsi_stranka=WikiSeznamHTML.find(attrs={"class":"mw-allpages-nav"}).find_all("a")
