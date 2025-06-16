@@ -180,7 +180,7 @@ WP - https://en.wikipedia.org/wiki/List_of_Wikipedias#Wikipedia_edition_codes"""
             print(f"Process {i+1} started with PID:{procesy[i].pid}")
     zpracovani_fronty.start()
     try:
-        print("world list processing has started")
+        print("worldlist processing has started")
         for i in range(len(procesy)):
             procesy[i].join()
         ukonceni.value = 1
