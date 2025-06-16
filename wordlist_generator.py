@@ -1,13 +1,14 @@
 import multiprocessing
 import sys
 import time
-from logging import exception
 
 from math import ceil
 from multiprocessing import Process, cpu_count, Manager, Queue
 from os import cpu_count
+from random import randrange
 from urllib.parse import  urlparse
 
+import bs4.element
 import requests
 from bs4 import BeautifulSoup
 from urllib3.util import parse_url
@@ -20,36 +21,51 @@ def extrahuj_slova(URL,fronta,verbose,pozice_dilu=1,pocet_dilu=1,maximum_stran=-
             slova = text.split()
             fronta.put(list(set(slova)))
         text_buffer.clear()
+    def timeout(dPenalty,dMez=5,hMez=15):
+        if verbose:
+            print(f"PID:{multiprocessing.current_process().pid} - Too Many Requests slowing down - Penalty:{dPenalty}")
+        time.sleep(randrange(dMez+dPenalty, hMez+dPenalty))
+
     prvniCastURL="https://"+parse_url(URL).netloc
     seznam_strana = 0
     predesly_nadpis = ""
     kol_pro_zapsani=5
     text_buffer = []
+    penalty=0
     try:
+        URL_dalsi_stranka=seznam_stranek=bs4.element.Tag
         # nacitani a ukladani textu dokud nenajede na posledni stranku
         while True:
+            if penalty>0:
+                penalty-=1
             bezchyby=True
             if verbose:
                 print(f"PID:{multiprocessing.current_process().pid} - page:{seznam_strana}")
             i = 0
+
             #nacte si odkazy na jednotlive články
+            WikiSeznamHTML=BeautifulSoup(requests.get(URL).text,bsparser)
             try:
-                WikiSeznamHTML=BeautifulSoup(requests.get(URL).text,bsparser)
                 seznam_stranek=WikiSeznamHTML.find(attrs={"class":"mw-allpages-chunk"}).find_all("a")
             except AttributeError:
+                if WikiSeznamHTML.text.find("Too Many Requests"):
+                    timeout(penalty,10,32)
+                    penalty+=3
+                    continue
                 bezchyby=False
             if bezchyby:
                 text_buffer = []
-                omezeni_zhora=ceil(len(seznam_stranek) / pocet_dilu)
-                konec_rozsahu=(pozice_dilu+1) *  omezeni_zhora
-                zacatek_rozsahu=konec_rozsahu-omezeni_zhora
+                omezeni_zhora=len(seznam_stranek) / pocet_dilu
+                konec_rozsahu=ceil((pozice_dilu+1) *  omezeni_zhora)
+                zacatek_rozsahu=konec_rozsahu-ceil(omezeni_zhora)
                 if konec_rozsahu > len(seznam_stranek):
                     konec_rozsahu=len(seznam_stranek)
 
                 stranky_URL = [""] * (konec_rozsahu-zacatek_rozsahu)
-
+                #print(f"pocet dilu:{pocet_dilu} pozice dilu:{pozice_dilu} pocet stranek:{len(seznam_stranek)} om. zhora:{omezeni_zhora} zacatek rozsahu:{zacatek_rozsahu}|konec rozsahu{konec_rozsahu}")
                 #extrahuje odkazy ze seznamu
                 j=0
+
                 for i in range(zacatek_rozsahu,konec_rozsahu):
                     stranky_URL[j] = prvniCastURL+seznam_stranek[i].get('href')
                     j+=1
@@ -61,6 +77,9 @@ def extrahuj_slova(URL,fronta,verbose,pozice_dilu=1,pocet_dilu=1,maximum_stran=-
                         html_parsed=BeautifulSoup(html,"html.parser")
                         nadpis=html_parsed.find(id='firstHeading').text
                     except AttributeError:
+                        if WikiSeznamHTML.text.find("Too Many Requests"):
+                            timeout(penalty,hMez=18)
+                            penalty += 1
                         continue
                     if predesly_nadpis == nadpis:
                         continue
@@ -69,7 +88,10 @@ def extrahuj_slova(URL,fronta,verbose,pozice_dilu=1,pocet_dilu=1,maximum_stran=-
                         predesly_nadpis=nadpis
 
             #prejde na dalsi stranku se seznamem
-            URL_dalsi_stranka=WikiSeznamHTML.find(attrs={"class":"mw-allpages-nav"}).find_all("a")
+            try:
+                URL_dalsi_stranka=WikiSeznamHTML.find(attrs={"class":"mw-allpages-nav"}).find_all("a")
+            except AttributeError:
+                continue
             #print(URL_dalsi_stranka[-1].get('href'))
             #zkontroluje jestli se nenachazi na posledni strance nebo neprekrocil limit stran
             if (len(URL_dalsi_stranka) <= 1 < seznam_strana) or (seznam_strana >= maximum_stran != -1):
